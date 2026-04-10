@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs grep:*)",
+      "Bash(npm install:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node mcp-server/dist/index.js)",
+      "mcp__aisemble__list_pipeline_runs",
+      "mcp__aisemble__create_research_run",
+      "mcp__aisemble__web_search",
+      "mcp__aisemble__add_research_source",
+      "mcp__aisemble__write_research_report",
+      "mcp__aisemble__complete_research",
+      "mcp__aisemble__log_activity",
+      "mcp__aisemble__get_stock_overview",
+      "mcp__aisemble__get_dividend_history",
+      "mcp__aisemble__get_research_for_pipeline",
+      "mcp__aisemble__create_thread_draft",
+      "mcp__aisemble__complete_draft"
+    ]
+  },
+  "enableAllProjectMcpServers": true,
+  "enabledMcpjsonServers": [
+    "aisemble"
+  ]
+}
