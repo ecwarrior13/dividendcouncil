@@ -5,14 +5,16 @@ import {
 } from '@/lib/supabase/atlas'
 import { compileDebateGraph } from './graph'
 import type { JointAssessment } from './state'
-import type { StockAnalysisRow } from '@/lib/supabase/types'
+import type { StockProfile } from '@/lib/supabase/types'
 
 export interface StockDebateResult {
   analysisId: string
   ticker: string
   aidenScore: number
   lexaScore: number
-  verdict: string
+  safetyFit: string
+  growthFit: string
+  profile: string
   rationale: string
 }
 
@@ -72,7 +74,9 @@ export async function runStockDebate(
       lexa_soft_flags: lexaScore.soft_flags,
       lexa_rationale: lexaScore.rationale,
       debate_transcript: result.transcript,
-      joint_verdict: joint.verdict,
+      safety_fit: joint.safety_fit,
+      growth_fit: joint.growth_fit,
+      stock_profile: joint.stock_profile as StockProfile,
       joint_rationale: joint.rationale,
       sector_profile: aidenScore.sector_profile,
       langgraph_thread: threadId,
@@ -84,7 +88,9 @@ export async function runStockDebate(
       ticker: symbol,
       aidenScore: joint.aiden_final_score,
       lexaScore: joint.lexa_final_score,
-      verdict: joint.verdict,
+      safetyFit: joint.safety_fit,
+      growthFit: joint.growth_fit,
+      profile: joint.stock_profile,
       rationale: joint.rationale,
     }
   } catch (err) {

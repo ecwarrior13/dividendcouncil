@@ -11,12 +11,21 @@ function scoreColor(score: number): string {
   return 'text-red-600'
 }
 
-const verdictVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  'strong buy': 'default',
-  'buy': 'default',
-  'hold': 'secondary',
-  'watch': 'outline',
-  'avoid': 'destructive',
+const profileVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  'premium fit': 'default',
+  'defensive compounder': 'default',
+  'safety focus': 'default',
+  'growth focus': 'secondary',
+  'moderate fit': 'secondary',
+  'speculative grower': 'outline',
+  'caution': 'outline',
+  'weak fit': 'destructive',
+}
+
+const fitColor: Record<string, string> = {
+  high: 'text-green-600',
+  moderate: 'text-yellow-600',
+  low: 'text-red-600',
 }
 
 function BucketScores({ buckets, labels }: { buckets: Record<string, number> | null; labels: Record<string, string> }) {
@@ -86,10 +95,20 @@ export default async function AnalysisDetailPage({
           {analysis.sector_profile && (
             <Badge variant="outline">{analysis.sector_profile}</Badge>
           )}
-          {analysis.joint_verdict && (
-            <Badge variant={verdictVariant[analysis.joint_verdict] ?? 'outline'} className="text-sm px-3 py-1">
-              {analysis.joint_verdict.toUpperCase()}
+          {analysis.stock_profile && (
+            <Badge variant={profileVariant[analysis.stock_profile] ?? 'outline'} className="text-sm px-3 py-1">
+              {analysis.stock_profile.toUpperCase()}
             </Badge>
+          )}
+          {analysis.safety_fit && (
+            <span className={`text-sm font-medium ${fitColor[analysis.safety_fit] ?? ''}`}>
+              Safety: {analysis.safety_fit}
+            </span>
+          )}
+          {analysis.growth_fit && (
+            <span className={`text-sm font-medium ${fitColor[analysis.growth_fit] ?? ''}`}>
+              Growth: {analysis.growth_fit}
+            </span>
           )}
         </div>
         <p className="text-sm text-muted-foreground">

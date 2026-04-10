@@ -22,7 +22,9 @@ export interface ComparisonOutput {
 }
 
 export interface JointAssessment {
-  verdict: 'strong buy' | 'buy' | 'hold' | 'watch' | 'avoid'
+  safety_fit: 'high' | 'moderate' | 'low'
+  growth_fit: 'high' | 'moderate' | 'low'
+  stock_profile: string
   rationale: string
   aiden_final_score: number
   lexa_final_score: number

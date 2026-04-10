@@ -27,8 +27,10 @@ CREATE TABLE dn_stock_analyses (
   lexa_rationale    TEXT,
   -- Debate
   debate_transcript JSONB,
-  -- Joint assessment
-  joint_verdict     TEXT,
+  -- Two-axis classification
+  safety_fit        TEXT,           -- high, moderate, low
+  growth_fit        TEXT,           -- high, moderate, low
+  stock_profile     TEXT,           -- premium fit, defensive compounder, speculative grower, etc.
   joint_rationale   TEXT,
   sector_profile    TEXT,
   -- Meta

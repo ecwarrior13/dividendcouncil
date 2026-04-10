@@ -18,12 +18,21 @@ function scoreColor(score: number | null): string {
   return 'text-red-600'
 }
 
-const verdictVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  'strong buy': 'default',
-  'buy': 'default',
-  'hold': 'secondary',
-  'watch': 'outline',
-  'avoid': 'destructive',
+const profileVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
+  'premium fit': 'default',
+  'defensive compounder': 'default',
+  'safety focus': 'default',
+  'growth focus': 'secondary',
+  'moderate fit': 'secondary',
+  'speculative grower': 'outline',
+  'caution': 'outline',
+  'weak fit': 'destructive',
+}
+
+const fitColor: Record<string, string> = {
+  high: 'text-green-600',
+  moderate: 'text-yellow-600',
+  low: 'text-red-600',
 }
 
 export default async function AnalysesPage() {
@@ -48,9 +57,9 @@ export default async function AnalysesPage() {
         <TableHeader>
           <TableRow>
             <TableHead>Ticker</TableHead>
-            <TableHead>Aiden (Safety)</TableHead>
-            <TableHead>Lexa (Growth)</TableHead>
-            <TableHead>Verdict</TableHead>
+            <TableHead>Safety</TableHead>
+            <TableHead>Growth</TableHead>
+            <TableHead>Profile</TableHead>
             <TableHead>Status</TableHead>
             <TableHead>Date</TableHead>
             <TableHead>Action</TableHead>
@@ -60,16 +69,18 @@ export default async function AnalysesPage() {
           {(analyses ?? []).map((a: any) => (
             <TableRow key={a.id}>
               <TableCell className="font-bold">{a.ticker}</TableCell>
-              <TableCell className={`font-medium ${scoreColor(a.aiden_score)}`}>
-                {a.aiden_score ?? '—'}
-              </TableCell>
-              <TableCell className={`font-medium ${scoreColor(a.lexa_score)}`}>
-                {a.lexa_score ?? '—'}
+              <TableCell>
+                <span className={`font-medium ${scoreColor(a.aiden_score)}`}>{a.aiden_score ?? '—'}</span>
+                {a.safety_fit && <span className={`ml-1 text-xs ${fitColor[a.safety_fit] ?? ''}`}>({a.safety_fit})</span>}
               </TableCell>
               <TableCell>
-                {a.joint_verdict ? (
-                  <Badge variant={verdictVariant[a.joint_verdict] ?? 'outline'}>
-                    {a.joint_verdict}
+                <span className={`font-medium ${scoreColor(a.lexa_score)}`}>{a.lexa_score ?? '—'}</span>
+                {a.growth_fit && <span className={`ml-1 text-xs ${fitColor[a.growth_fit] ?? ''}`}>({a.growth_fit})</span>}
+              </TableCell>
+              <TableCell>
+                {a.stock_profile ? (
+                  <Badge variant={profileVariant[a.stock_profile] ?? 'outline'}>
+                    {a.stock_profile}
                   </Badge>
                 ) : '—'}
               </TableCell>

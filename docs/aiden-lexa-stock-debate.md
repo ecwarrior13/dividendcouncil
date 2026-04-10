@@ -227,18 +227,18 @@ Produce a final, balanced verdict.
 
 ## Output Format
 {
-  "verdict": "strong buy" | "buy" | "hold" | "watch" | "avoid",
+  "verdict": "strong fit" | "fit" | "mixed" | "watchlist" | "weak fit",
   "rationale": "2-3 paragraph synthesis",
   "aiden_final_score": <adjusted if response indicated change>,
   "lexa_final_score": <adjusted if response indicated change>
 }
 
-## Verdict Guide
-- strong buy: Both >75, no hard flags, strong agreement
-- buy: Average >70, manageable disagreements
-- hold: Average 55-70, mixed signals
-- watch: Average 40-55 or significant disagreements
-- avoid: Average <40 or hard flags from both agents
+## Verdict Guide (research assessment, NOT financial advice)
+- strong fit: Both >75, no hard flags, strong agreement on quality
+- fit: Average >70, manageable disagreements, fundamentals support thesis
+- mixed: Average 55-70, mixed signals, warrants deeper research
+- watchlist: Average 40-55 or significant disagreements, monitor for changes
+- weak fit: Average <40 or hard flags from both agents
 ```
 
 ### User Message:

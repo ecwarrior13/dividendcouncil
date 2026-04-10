@@ -91,6 +91,11 @@ export async function lexaScoreNode(state: DebateStateType) {
   }
 }
 
+// Shared dimensions both agents evaluate (different weights, but same underlying data)
+const SHARED_DIMENSIONS: Record<string, { aiden: string; lexa: string }> = {
+  'payout/coverage': { aiden: 'dividend_coverage', lexa: 'safety_floor' },
+}
+
 // --- Node 4: Compare ---
 export async function compareNode(state: DebateStateType) {
   console.log('\n── Phase 3: Comparing scores ──')
@@ -98,32 +103,40 @@ export async function compareNode(state: DebateStateType) {
   const aiden = state.aidenScore!
   const lexa = state.lexaScore!
 
-  // Build comparison from bucket-level differences
-  const aidenBuckets = Object.entries(aiden.bucket_scores)
-  const lexaBuckets = Object.entries(lexa.bucket_scores)
-  const allBucketNames = new Set([...aidenBuckets.map(([k]) => k), ...lexaBuckets.map(([k]) => k)])
-
   const agreements: string[] = []
   const disagreements: Array<{ bucket: string; aiden: number; lexa: number; delta: number }> = []
 
-  for (const bucket of allBucketNames) {
-    const aidenVal = aiden.bucket_scores[bucket] ?? 0
-    const lexaVal = lexa.bucket_scores[bucket] ?? 0
+  // Only compare genuinely shared dimensions
+  for (const [label, mapping] of Object.entries(SHARED_DIMENSIONS)) {
+    const aidenVal = aiden.bucket_scores[mapping.aiden] ?? 0
+    const lexaVal = lexa.bucket_scores[mapping.lexa] ?? 0
     const delta = Math.abs(aidenVal - lexaVal)
-    if (delta > 15) {
-      disagreements.push({ bucket, aiden: aidenVal, lexa: lexaVal, delta })
+    if (delta > 20) {
+      disagreements.push({ bucket: label, aiden: aidenVal, lexa: lexaVal, delta })
     } else {
-      agreements.push(`${bucket}: Aiden ${aidenVal}, Lexa ${lexaVal} (aligned)`)
+      agreements.push(`${label}: Aiden ${aidenVal} (${mapping.aiden}), Lexa ${lexaVal} (${mapping.lexa}) — aligned`)
     }
   }
 
-  // Generate key questions from disagreements
+  // Cross-check: if Lexa's safety_floor is low but Aiden's overall is high, that's noteworthy
+  const lexaSafety = lexa.bucket_scores['safety_floor'] ?? 0
+  const aidenOverall = aiden.final_score
+  if (lexaSafety < 50 && aidenOverall > 70) {
+    disagreements.push({
+      bucket: 'safety assessment',
+      aiden: aidenOverall,
+      lexa: lexaSafety,
+      delta: aidenOverall - lexaSafety,
+    })
+  }
+
   const key_questions = disagreements.map(
-    (d) => `Why did ${d.aiden > d.lexa ? 'Aiden' : 'Lexa'} rate ${d.bucket} ${d.delta} points higher?`,
+    (d) => `On ${d.bucket}: Aiden sees ${d.aiden}, Lexa sees ${d.lexa} — what explains the ${d.delta}pt gap?`,
   )
 
-  const scoreDelta = Math.abs(aiden.final_score - lexa.final_score)
-  const summary = `Aiden scored ${state.ticker} ${aiden.final_score}/100 (safety). Lexa scored ${lexa.final_score}/100 (growth). Delta: ${scoreDelta} points. ${disagreements.length} bucket disagreements (>15pt gap), ${agreements.length} areas of alignment.`
+  // Note: we no longer compute a "delta" between Aiden and Lexa overall scores
+  // because they measure different things (safety vs growth opportunity)
+  const summary = `${state.ticker} — Safety: ${aiden.final_score}/100 (Aiden). Growth opportunity: ${lexa.final_score}/100 (Lexa). ${disagreements.length} shared-dimension disagreements, ${agreements.length} aligned. Hard flags: Aiden ${aiden.hard_flags.length}, Lexa ${lexa.hard_flags.length}.`
 
   const comparison: ComparisonOutput = { agreements, disagreements, key_questions, summary }
 
@@ -201,39 +214,84 @@ export async function lexaRespondNode(state: DebateStateType) {
   }
 }
 
+// --- Two-Axis Classification ---
+
+type FitLevel = 'high' | 'moderate' | 'low'
+
+function classifyFit(score: number, hasHardFlags: boolean): FitLevel {
+  if (hasHardFlags && score < 60) return 'low'
+  if (score >= 70) return 'high'
+  if (score >= 50) return 'moderate'
+  return 'low'
+}
+
+// Safety × Growth matrix
+const PROFILE_MATRIX: Record<string, Record<string, string>> = {
+  high:     { high: 'premium fit',          moderate: 'safety focus',        low: 'defensive compounder' },
+  moderate: { high: 'growth focus',         moderate: 'moderate fit',        low: 'caution' },
+  low:      { high: 'speculative grower',   moderate: 'caution',             low: 'weak fit' },
+}
+
+function computeProfile(
+  aidenScore: AgentScoreOutput,
+  lexaScore: AgentScoreOutput,
+): { safetyFit: FitLevel; growthFit: FitLevel; profile: string } {
+  const safetyFit = classifyFit(aidenScore.final_score, aidenScore.hard_flags.length > 0)
+  const growthFit = classifyFit(lexaScore.final_score, lexaScore.hard_flags.length > 0)
+  const profile = PROFILE_MATRIX[safetyFit][growthFit]
+  return { safetyFit, growthFit, profile }
+}
+
 // --- Node 7: Final Assessment ---
 export async function finalAssessmentNode(state: DebateStateType) {
   console.log('\n── Phase 5: Joint assessment ──')
 
+  const aiden = state.aidenScore!
+  const lexa = state.lexaScore!
+
+  // Profile is determined by rules on two axes, not by the LLM
+  const { safetyFit, growthFit, profile } = computeProfile(aiden, lexa)
+  console.log(`  Safety: ${safetyFit} (${aiden.final_score}), Growth: ${growthFit} (${lexa.final_score}) → ${profile}`)
+
   await logAgentActivity({
     agent_name: 'Debate',
     activity_type: 'writing',
-    message: `Synthesizing final verdict for ${state.ticker}...`,
+    message: `Profile: ${profile} (safety: ${safetyFit}, growth: ${growthFit}). Generating rationale...`,
   })
 
+  // LLM writes the rationale around the pre-determined profile
   const { systemPrompt, userMessage } = buildFinalPrompt(
     state.ticker,
-    state.aidenScore!,
-    state.lexaScore!,
+    aiden,
+    lexa,
     state.comparison!,
     state.aidenResponse!,
     state.lexaResponse!,
+    profile,
+    safetyFit,
+    growthFit,
   )
-  const response = await callAgent(systemPrompt, userMessage, { maxTokens: 2000 })
+  const rationale = await callAgent(systemPrompt, userMessage, { maxTokens: 1500 })
 
-  const jointAssessment = parseJSON<typeof state.jointAssessment>(response)
+  const jointAssessment = {
+    safety_fit: safetyFit,
+    growth_fit: growthFit,
+    stock_profile: profile,
+    rationale,
+    aiden_final_score: aiden.final_score,
+    lexa_final_score: lexa.final_score,
+  }
 
-  console.log(`\n  Verdict: ${jointAssessment!.verdict.toUpperCase()}`)
-  console.log(`  Aiden final: ${jointAssessment!.aiden_final_score}, Lexa final: ${jointAssessment!.lexa_final_score}`)
+  console.log(`  Aiden: ${aiden.final_score}, Lexa: ${lexa.final_score}`)
 
   await logAgentActivity({
     agent_name: 'Debate',
     activity_type: 'completed',
-    message: `${state.ticker} verdict: ${jointAssessment!.verdict} — Aiden: ${jointAssessment!.aiden_final_score}, Lexa: ${jointAssessment!.lexa_final_score}`,
+    message: `${state.ticker}: ${profile} — Safety: ${safetyFit} (${aiden.final_score}), Growth: ${growthFit} (${lexa.final_score})`,
   })
 
   return {
     jointAssessment,
-    transcript: [{ agent: 'System', phase: 'final', content: response }],
+    transcript: [{ agent: 'System', phase: 'final', content: `Profile: ${profile}\nSafety: ${safetyFit} | Growth: ${growthFit}\n\n${rationale}` }],
   }
 }

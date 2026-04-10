@@ -7,48 +7,64 @@ export function buildFinalPrompt(
   comparison: ComparisonOutput,
   aidenResponse: string,
   lexaResponse: string,
+  profile: string,
+  safetyFit: string,
+  growthFit: string,
 ): { systemPrompt: string; userMessage: string } {
   const systemPrompt = `You are the joint assessment synthesizer for The Dividend Lab.
 
-You have the full debate between Aiden (safety analyst) and Lexa (growth analyst) on ${ticker}. Your job is to produce a final, balanced verdict.
+You have the full debate between Aiden (safety analyst) and Lexa (growth analyst) on ${ticker}.
 
-## Output Format
-Respond with valid JSON:
-{
-  "verdict": "strong buy" | "buy" | "hold" | "watch" | "avoid",
-  "rationale": "2-3 paragraph synthesis explaining the verdict",
-  "aiden_final_score": <Aiden's score, adjusted if his response indicated a change>,
-  "lexa_final_score": <Lexa's score, adjusted if her response indicated a change>
-}
+The stock has been classified on two independent axes:
+- **Safety fit**: ${safetyFit.toUpperCase()} (Aiden's assessment: ${aidenScore.final_score}/100)
+- **Growth fit**: ${growthFit.toUpperCase()} (Lexa's assessment: ${lexaScore.final_score}/100)
+- **Stock profile**: ${profile.toUpperCase()}
 
-## Verdict Guide
-- strong buy: Both agents score >75, no hard flags, strong agreement
-- buy: Average score >70, manageable disagreements, fundamentals solid
-- hold: Average 55-70, mixed signals, worth monitoring
-- watch: Average 40-55 or significant disagreements, needs more data
-- avoid: Average <40, hard flags present, or fundamental concerns from both agents
+## Profile Meanings
+- premium fit: High safety + high growth — rare combination of quality and opportunity
+- defensive compounder: High safety + low growth — reliable income, limited upside
+- speculative grower: Low safety + high growth — opportunity exists but risk is elevated
+- moderate fit: Moderate on both axes — decent but not exceptional on either dimension
+- safety focus: High safety + moderate growth — strong foundation, some growth potential
+- growth focus: Moderate safety + high growth — growth story with acceptable risk
+- weak fit: Low on both axes — does not meet standards on either dimension
+- caution: Hard flags present or mixed signals requiring further research
 
-Respond with ONLY the JSON object.`
+Your ONLY job is to write a clear rationale explaining WHY this profile fits. Do NOT choose a different profile. Explain the one that was determined by the scoring rules.
 
-  const userMessage = `## Aiden's Initial Score
-${JSON.stringify(aidenScore, null, 2)}
+## Instructions
+- Write 2-3 paragraphs explaining this profile for ${ticker}
+- Frame it as two independent assessments: what Aiden found on safety, what Lexa found on growth
+- Do NOT average their scores or treat a gap as a "conflict" — they measure different things
+- Reference specific bucket scores, flags, and data points
+- If agents adjusted views during the response phase, note that
+- This is a research assessment, NOT financial advice
+- Respond with ONLY the rationale text, no JSON, no headers`
 
-## Lexa's Initial Score
-${JSON.stringify(lexaScore, null, 2)}
+  const userMessage = `Stock Profile: ${profile.toUpperCase()}
+Safety Fit: ${safetyFit} | Growth Fit: ${growthFit}
 
-## Comparison
+## Aiden (Safety): ${aidenScore.final_score}/100
+Buckets: ${JSON.stringify(aidenScore.bucket_scores)}
+Hard flags: ${aidenScore.hard_flags.length > 0 ? aidenScore.hard_flags.join(', ') : 'none'}
+Rationale: ${aidenScore.rationale}
+
+## Lexa (Growth): ${lexaScore.final_score}/100
+Buckets: ${JSON.stringify(lexaScore.bucket_scores)}
+Hard flags: ${lexaScore.hard_flags.length > 0 ? lexaScore.hard_flags.join(', ') : 'none'}
+Rationale: ${lexaScore.rationale}
+
+## Shared Dimension Comparison
 ${comparison.summary}
+${comparison.disagreements.length > 0 ? comparison.disagreements.map((d) => `- ${d.bucket}: Aiden ${d.aiden} vs Lexa ${d.lexa} (delta: ${d.delta})`).join('\n') : 'No shared-dimension disagreements.'}
 
-Disagreements:
-${comparison.disagreements.map((d) => `- ${d.bucket}: Aiden ${d.aiden} vs Lexa ${d.lexa}`).join('\n')}
-
-## Aiden's Response to Lexa
+## Aiden's Response
 ${aidenResponse}
 
-## Lexa's Response to Aiden
+## Lexa's Response
 ${lexaResponse}
 
-Synthesize the full debate and produce the final verdict for ${ticker}.`
+Write the rationale for the ${profile.toUpperCase()} profile.`
 
   return { systemPrompt, userMessage }
 }

@@ -14,7 +14,7 @@ export function buildAidenScoringPrompt(data: FinancialDataBundle): {
   userMessage: string
 } {
   const rules = loadRules()
-  const ticker = data.metadata.symbol
+  const ticker = data.profile.symbol
 
   const systemPrompt = `You are Aiden, the dividend safety analyst for The Dividend Lab.
 
@@ -51,8 +51,8 @@ Respond with ONLY the JSON object, no markdown code fences, no additional text.`
 
   const userMessage = `Analyze ${ticker} for dividend safety.
 
-## Company Overview
-${JSON.stringify(data.metadata, null, 2)}
+## Company Profile
+${JSON.stringify(data.profile, null, 2)}
 
 ## Income Statements (most recent first)
 ${JSON.stringify(data.incomeStatements, null, 2)}
@@ -62,6 +62,9 @@ ${JSON.stringify(data.balanceSheets, null, 2)}
 
 ## Cash Flow Statements (most recent first)
 ${JSON.stringify(data.cashFlows, null, 2)}
+
+## Dividend History
+${JSON.stringify(data.dividends, null, 2)}
 
 Score this stock using your 4-bucket safety framework. Apply all hard rules and sector overrides.`
 

@@ -57,7 +57,18 @@ export type TopicProposalStatus = 'queued' | 'seeded' | 'approved' | 'rejected'
 
 export type ActionType = 'frame' | 'propose' | 'challenge' | 'defend' | 'synthesize' | 'decide'
 
-export type JointVerdict = 'strong buy' | 'buy' | 'hold' | 'watch' | 'avoid'
+export type FitLevel = 'high' | 'moderate' | 'low'
+
+// Two-axis classification: safety × growth
+export type StockProfile =
+  | 'premium fit'            // high safety + high growth
+  | 'defensive compounder'   // high safety + low growth
+  | 'speculative grower'     // low safety + high growth
+  | 'moderate fit'           // moderate safety + moderate growth
+  | 'safety focus'           // high safety + moderate growth
+  | 'growth focus'           // moderate safety + high growth
+  | 'weak fit'               // low safety + low growth
+  | 'caution'                // either has hard flags
 export type SectorProfile = 'corp' | 'reits' | 'bdc' | 'mlp' | 'utility' | 'bank' | 'cyclical'
 
 export type AgentActivityType =
@@ -362,7 +373,9 @@ export interface StockAnalysisRow {
   lexa_soft_flags: string[] | null
   lexa_rationale: string | null
   debate_transcript: Array<{ agent: string; phase: string; content: string }> | null
-  joint_verdict: JointVerdict | null
+  safety_fit: FitLevel | null
+  growth_fit: FitLevel | null
+  stock_profile: StockProfile | null
   joint_rationale: string | null
   sector_profile: SectorProfile | null
   langgraph_thread: string | null

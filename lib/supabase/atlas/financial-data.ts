@@ -1,15 +1,16 @@
 import { createServiceClient } from '../client'
 
-// These tables use the Alpha Vantage schema (not dn_ prefix)
-const METADATA = 'alph_stock_metadata'
-const BALANCE_SHEET = 'alpha_balance_sheet'
-const CASH_FLOW = 'alpha_cash_flow'
-const INCOME_STATEMENT = 'alpha_income_statement'
+// FMP tables (replacing Alpha Vantage)
+const PROFILE = 'fmp_company_profile'
+const INCOME = 'fmp_income_statement'
+const BALANCE = 'fmp_balance_sheet'
+const CASHFLOW = 'fmp_cash_flow'
+const DIVIDENDS = 'fmp_dividends'
 
-export async function getStockMetadata(ticker: string) {
+export async function getCompanyProfile(ticker: string) {
   const sb = createServiceClient()
   const { data, error } = await sb
-    .from(METADATA)
+    .from(PROFILE)
     .select('*')
     .eq('symbol', ticker.toUpperCase())
     .maybeSingle()
@@ -17,105 +18,131 @@ export async function getStockMetadata(ticker: string) {
   return data
 }
 
-export async function getBalanceSheet(
+export async function getIncomeStatements(
   ticker: string,
-  reportType?: 'annual' | 'quarterly',
+  period?: string,
   limit = 5,
 ) {
   const sb = createServiceClient()
   let query = sb
-    .from(BALANCE_SHEET)
+    .from(INCOME)
     .select('*')
     .eq('symbol', ticker.toUpperCase())
-    .order('fiscal_date_ending', { ascending: false })
+    .order('date', { ascending: false })
     .limit(limit)
-  if (reportType) query = query.eq('report_type', reportType)
+  if (period) query = query.eq('period', period)
   const { data, error } = await query
   if (error) throw error
   return data ?? []
 }
 
-export async function getCashFlow(
+export async function getBalanceSheets(
   ticker: string,
-  reportType?: 'annual' | 'quarterly',
+  period?: string,
   limit = 5,
 ) {
   const sb = createServiceClient()
   let query = sb
-    .from(CASH_FLOW)
+    .from(BALANCE)
     .select('*')
     .eq('symbol', ticker.toUpperCase())
-    .order('fiscal_date_ending', { ascending: false })
+    .order('date', { ascending: false })
     .limit(limit)
-  if (reportType) query = query.eq('report_type', reportType)
+  if (period) query = query.eq('period', period)
   const { data, error } = await query
   if (error) throw error
   return data ?? []
 }
 
-export async function getIncomeStatement(
+export async function getCashFlows(
   ticker: string,
-  reportType?: 'annual' | 'quarterly',
+  period?: string,
   limit = 5,
 ) {
   const sb = createServiceClient()
   let query = sb
-    .from(INCOME_STATEMENT)
+    .from(CASHFLOW)
     .select('*')
     .eq('symbol', ticker.toUpperCase())
-    .order('fiscal_date_ending', { ascending: false })
+    .order('date', { ascending: false })
     .limit(limit)
-  if (reportType) query = query.eq('report_type', reportType)
+  if (period) query = query.eq('period', period)
   const { data, error } = await query
+  if (error) throw error
+  return data ?? []
+}
+
+export async function getDividendHistory(ticker: string, limit = 20) {
+  const sb = createServiceClient()
+  const { data, error } = await sb
+    .from(DIVIDENDS)
+    .select('*')
+    .eq('symbol', ticker.toUpperCase())
+    .order('date', { ascending: false })
+    .limit(limit)
   if (error) throw error
   return data ?? []
 }
 
 export async function isDataStale(ticker: string, maxAgeDays = 7): Promise<boolean> {
-  const metadata = await getStockMetadata(ticker)
-  if (!metadata) return true
-  const updatedAt = new Date(metadata.updated_at)
-  const ageMs = Date.now() - updatedAt.getTime()
-  const ageDays = ageMs / (1000 * 60 * 60 * 24)
+  const profile = await getCompanyProfile(ticker)
+  if (!profile) return true
+  const updatedAt = new Date(profile.updated_at)
+  const ageDays = (Date.now() - updatedAt.getTime()) / (1000 * 60 * 60 * 24)
   return ageDays > maxAgeDays
 }
 
-export async function upsertStockMetadata(ticker: string, data: Record<string, unknown>) {
+export async function upsertCompanyProfile(ticker: string, data: Record<string, unknown>) {
   const sb = createServiceClient()
   const { error } = await sb
-    .from(METADATA)
+    .from(PROFILE)
     .upsert({ symbol: ticker.toUpperCase(), ...data, updated_at: new Date().toISOString() }, { onConflict: 'symbol' })
   if (error) throw error
 }
 
+// Filter rows to only include columns that exist in the target table
+async function filterToKnownColumns(
+  sb: ReturnType<typeof createServiceClient>,
+  table: string,
+  rows: Array<Record<string, unknown>>,
+): Promise<Array<Record<string, unknown>>> {
+  const { data: sample } = await sb.from(table).select('*').limit(1)
+  if (!sample || sample.length === 0) return rows // first insert, can't filter
+  const validColumns = new Set(Object.keys(sample[0]))
+  return rows.map((row) => {
+    const filtered: Record<string, unknown> = {}
+    for (const [k, v] of Object.entries(row)) {
+      if (validColumns.has(k)) filtered[k] = v
+    }
+    return filtered
+  })
+}
+
 export async function upsertFinancialStatements(
   ticker: string,
-  table: 'alpha_balance_sheet' | 'alpha_cash_flow' | 'alpha_income_statement',
+  table: 'fmp_income_statement' | 'fmp_balance_sheet' | 'fmp_cash_flow',
   rows: Array<Record<string, unknown>>,
 ) {
   if (rows.length === 0) return
   const sb = createServiceClient()
-
-  // Discover valid columns by querying one row (or empty set)
-  const { data: sample, error: sampleErr } = await sb.from(table).select('*').limit(1)
-  let validColumns: Set<string> | null = null
-  if (!sampleErr && sample && sample.length > 0) {
-    validColumns = new Set(Object.keys(sample[0]))
-  }
-
-  const tagged = rows.map((r) => {
-    const row: Record<string, unknown> = { ...r, symbol: ticker.toUpperCase() }
-    // Filter to only known columns if we have a schema sample
-    if (validColumns) {
-      for (const key of Object.keys(row)) {
-        if (!validColumns.has(key)) delete row[key]
-      }
-    }
-    return row
-  })
-
+  const tagged = rows.map((r) => ({ ...r, symbol: ticker.toUpperCase() }))
+  const filtered = await filterToKnownColumns(sb, table, tagged)
   const { error } = await sb
     .from(table)
-    .upsert(tagged, { onConflict: 'symbol,fiscal_date_ending,report_type' })
+    .upsert(filtered, { onConflict: 'symbol,date,period' })
+  if (error) throw error
+}
+
+export async function upsertDividends(
+  ticker: string,
+  rows: Array<Record<string, unknown>>,
+) {
+  if (rows.length === 0) return
+  const sb = createServiceClient()
+  const tagged = rows.map((r) => ({ ...r, symbol: ticker.toUpperCase() }))
+  const filtered = await filterToKnownColumns(sb, DIVIDENDS, tagged)
+  const { error } = await sb
+    .from(DIVIDENDS)
+    .upsert(filtered, { onConflict: 'symbol,date' })
   if (error) throw error
 }
