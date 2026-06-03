@@ -165,7 +165,7 @@ export async function aidenRespondNode(state: DebateStateType) {
   })
 
   const { systemPrompt, userMessage } = buildResponsePrompt(
-    'Aiden', state.aidenScore!, state.lexaScore!, state.comparison!,
+    'Aiden', state.aidenScore!, state.lexaScore!, state.comparison!, state.financialData,
   )
   const response = await callAgent(systemPrompt, userMessage, { maxTokens: 1500 })
 
@@ -195,7 +195,7 @@ export async function lexaRespondNode(state: DebateStateType) {
   })
 
   const { systemPrompt, userMessage } = buildResponsePrompt(
-    'Lexa', state.lexaScore!, state.aidenScore!, state.comparison!,
+    'Lexa', state.lexaScore!, state.aidenScore!, state.comparison!, state.financialData,
   )
   const response = await callAgent(systemPrompt, userMessage, { maxTokens: 1500 })
 

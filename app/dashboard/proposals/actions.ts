@@ -31,3 +31,14 @@ export async function rejectProposalAction(id: string) {
 
   revalidatePath('/dashboard/proposals')
 }
+
+export async function markSeededAction(id: string) {
+  const sb = createServiceClient()
+  const { error } = await sb
+    .from('dn_topic_proposals')
+    .update({ status: 'seeded' })
+    .eq('id', id)
+  if (error) throw new Error(error.message)
+
+  revalidatePath('/dashboard/proposals')
+}

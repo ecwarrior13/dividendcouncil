@@ -20,16 +20,17 @@ export interface StockDebateResult {
 
 export async function runStockDebate(
   ticker: string,
-  options?: { pipelineRunId?: string },
+  options?: { pipelineRunId?: string; existingAnalysisId?: string },
 ): Promise<StockDebateResult> {
   const symbol = ticker.toUpperCase()
 
-  // Create analysis record
-  const analysis = await createStockAnalysis({
-    ticker: symbol,
-    pipeline_run_id: options?.pipelineRunId ?? null,
-    status: 'running',
-  })
+  const analysis = options?.existingAnalysisId
+    ? await updateStockAnalysis(options.existingAnalysisId, { status: 'running' })
+    : await createStockAnalysis({
+        ticker: symbol,
+        pipeline_run_id: options?.pipelineRunId ?? null,
+        status: 'running',
+      })
 
   await logAgentActivity({
     agent_name: 'Debate',

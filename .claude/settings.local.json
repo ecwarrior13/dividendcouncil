@@ -16,7 +16,8 @@
       "mcp__aisemble__get_dividend_history",
       "mcp__aisemble__get_research_for_pipeline",
       "mcp__aisemble__create_thread_draft",
-      "mcp__aisemble__complete_draft"
+      "mcp__aisemble__complete_draft",
+      "Bash(npx next *)"
     ]
   },
   "enableAllProjectMcpServers": true,

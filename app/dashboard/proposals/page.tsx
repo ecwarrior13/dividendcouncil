@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table'
 import type { TopicProposalStatus } from '@/lib/supabase/types'
 import { createProposalAction } from './actions'
+import { SendToCouncilButton } from './send-to-council'
 
 const statusVariant: Record<TopicProposalStatus, 'default' | 'secondary' | 'destructive' | 'outline'> = {
   queued: 'default',
@@ -126,6 +127,7 @@ export default async function ProposalsPage() {
             <TableHead>Status</TableHead>
             <TableHead>Proposed By</TableHead>
             <TableHead>Date</TableHead>
+            <TableHead>Action</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -152,11 +154,18 @@ export default async function ProposalsPage() {
               <TableCell className="text-sm text-muted-foreground">
                 {new Date(proposal.created_at).toLocaleDateString()}
               </TableCell>
+              <TableCell>
+                <SendToCouncilButton
+                  proposalId={proposal.id}
+                  topic={proposal.topic}
+                  status={proposal.status}
+                />
+              </TableCell>
             </TableRow>
           ))}
           {(!proposals || proposals.length === 0) && (
             <TableRow>
-              <TableCell colSpan={5} className="text-center text-muted-foreground py-8">
+              <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
                 No proposals yet. Add one above.
               </TableCell>
             </TableRow>

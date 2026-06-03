@@ -1,5 +1,8 @@
 import Anthropic from '@anthropic-ai/sdk'
 
+const PRIMARY_MODEL = 'claude-sonnet-4-20250514'
+const FALLBACK_MODEL = 'claude-haiku-4-5-20251001'
+
 let client: Anthropic | null = null
 
 function getClient(): Anthropic {
@@ -8,17 +11,22 @@ function getClient(): Anthropic {
   return client
 }
 
-async function withRetry<T>(fn: () => Promise<T>, maxRetries = 3): Promise<T> {
+function isRetryableError(err: any): boolean {
+  const status = err?.status ?? err?.statusCode
+  return status === 529 || status === 503 || status === 500 || status === 429
+}
+
+async function withRetry<T>(fn: () => Promise<T>, label: string, maxRetries = 5): Promise<T> {
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     try {
       return await fn()
     } catch (err: any) {
-      const status = err?.status ?? err?.statusCode
-      const shouldRetry = status === 529 || status === 503 || status === 500
-      if (!shouldRetry || attempt === maxRetries) throw err
+      if (!isRetryableError(err) || attempt === maxRetries) throw err
 
-      const delay = Math.min(2000 * Math.pow(2, attempt - 1), 30000) // 2s, 4s, 8s... max 30s
-      console.log(`  API overloaded (${status}), retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})...`)
+      // Backoff: 4s, 8s, 16s, 32s (capped at 60s)
+      const delay = Math.min(4000 * Math.pow(2, attempt - 1), 60000)
+      const status = err?.status ?? err?.statusCode
+      console.log(`  ${label}: API overloaded (${status}), retrying in ${delay / 1000}s (attempt ${attempt}/${maxRetries})...`)
       await new Promise((r) => setTimeout(r, delay))
     }
   }
@@ -32,14 +40,24 @@ export async function callAgent(
 ): Promise<string> {
   const anthropic = getClient()
 
-  const response = await withRetry(() =>
+  const makeCall = (model: string) =>
     anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
+      model,
       max_tokens: options?.maxTokens ?? 1500,
       system: systemPrompt,
       messages: [{ role: 'user', content: userMessage }],
-    }),
-  )
+    })
+
+  let response
+  try {
+    // Try primary model with retries
+    response = await withRetry(() => makeCall(PRIMARY_MODEL), 'Sonnet')
+  } catch (err) {
+    if (!isRetryableError(err)) throw err
+    // Primary model is still overloaded after all retries — fall back to Haiku
+    console.log(`  Sonnet exhausted retries, falling back to Haiku...`)
+    response = await withRetry(() => makeCall(FALLBACK_MODEL), 'Haiku', 3)
+  }
 
   const block = response.content[0]
   if (block.type !== 'text') throw new Error('Unexpected response type')

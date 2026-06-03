@@ -32,6 +32,24 @@ export default function DashboardLayout({
             Analyses
           </Link>
           <Link
+            href="/dashboard/etfs"
+            className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            ETFs
+          </Link>
+          <Link
+            href="/dashboard/ema-watchlist"
+            className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            EMA Watchlist
+          </Link>
+          <Link
+            href="/dashboard/13f"
+            className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
+          >
+            13F Filings
+          </Link>
+          <Link
             href="/dashboard/workflows"
             className="block rounded-md px-3 py-2 text-sm font-medium hover:bg-muted"
           >

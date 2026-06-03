@@ -93,7 +93,9 @@ export default async function DashboardPage() {
           {(runs ?? []).map((run) => (
             <TableRow key={run.id}>
               <TableCell className="font-medium max-w-xs truncate">
-                {run.topic ?? '—'}
+                <Link href={`/dashboard/pipeline/${run.id}`} className="hover:underline">
+                  {run.topic ?? '—'}
+                </Link>
               </TableCell>
               <TableCell>
                 <PipelineStatusBadge status={run.status as PipelineRunStatus} />
@@ -105,7 +107,12 @@ export default async function DashboardPage() {
                 {new Date(run.created_at).toLocaleDateString()}
               </TableCell>
               <TableCell>
-                {actionLink({ id: run.id, status: run.status as PipelineRunStatus })}
+                <div className="flex items-center gap-3 text-sm">
+                  {actionLink({ id: run.id, status: run.status as PipelineRunStatus })}
+                  <Link href={`/dashboard/pipeline/${run.id}`} className="text-primary underline">
+                    View
+                  </Link>
+                </div>
               </TableCell>
             </TableRow>
           ))}
